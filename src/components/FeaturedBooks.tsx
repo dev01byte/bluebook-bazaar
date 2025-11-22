@@ -1,63 +1,127 @@
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ShoppingCart, Star } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 
 interface Book {
   id: string;
   title: string;
   author: string;
   price: number;
-  originalPrice: number;
+  original_price: number | null;
   condition: string;
-  image: string;
-  rating: number;
+  image_url: string | null;
+  category: string;
 }
 
-const featuredBooks: Book[] = [
-  {
-    id: "1",
-    title: "The Great Gatsby",
-    author: "F. Scott Fitzgerald",
-    price: 12.99,
-    originalPrice: 18.99,
-    condition: "Very Good",
-    image: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=300&h=400&fit=crop",
-    rating: 4.5
-  },
-  {
-    id: "2",
-    title: "To Kill a Mockingbird",
-    author: "Harper Lee",
-    price: 10.99,
-    originalPrice: 16.99,
-    condition: "Good",
-    image: "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=300&h=400&fit=crop",
-    rating: 4.8
-  },
-  {
-    id: "3",
-    title: "1984",
-    author: "George Orwell",
-    price: 11.99,
-    originalPrice: 17.99,
-    condition: "Like New",
-    image: "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=300&h=400&fit=crop",
-    rating: 4.7
-  },
-  {
-    id: "4",
-    title: "Pride and Prejudice",
-    author: "Jane Austen",
-    price: 9.99,
-    originalPrice: 15.99,
-    condition: "Very Good",
-    image: "https://images.unsplash.com/photo-1589998059171-988d887df646?w=300&h=400&fit=crop",
-    rating: 4.6
-  }
-];
-
 export const FeaturedBooks = () => {
+  const [books, setBooks] = useState<Book[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchBooks();
+  }, []);
+
+  const fetchBooks = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('books')
+        .select('*')
+        .eq('is_available', true)
+        .limit(8)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setBooks(data || []);
+    } catch (error) {
+      console.error('Error fetching books:', error);
+      toast({
+        title: "Error loading books",
+        description: "Could not load featured books. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addToCart = async (bookId: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast({
+          title: "Please sign in",
+          description: "You need to sign in to add items to cart.",
+        });
+        navigate('/auth');
+        return;
+      }
+
+      const { error } = await supabase
+        .from('cart')
+        .upsert({
+          user_id: session.user.id,
+          book_id: bookId,
+          quantity: 1,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Added to cart!",
+        description: "Book has been added to your cart.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getConditionLabel = (condition: string) => {
+    const labels: Record<string, string> = {
+      'like_new': 'Like New',
+      'very_good': 'Very Good',
+      'good': 'Good',
+      'acceptable': 'Acceptable',
+    };
+    return labels[condition] || condition;
+  };
+
+  if (loading) {
+    return (
+      <section className="py-16">
+        <div className="container mx-auto px-4">
+          <div className="text-center">
+            <p className="text-muted-foreground">Loading books...</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (books.length === 0) {
+    return (
+      <section className="py-16">
+        <div className="container mx-auto px-4">
+          <div className="text-center">
+            <h2 className="text-3xl font-bold mb-3">Featured Books</h2>
+            <p className="text-muted-foreground">No books available yet. Be the first to sell!</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="py-16">
       <div className="container mx-auto px-4">
@@ -69,37 +133,43 @@ export const FeaturedBooks = () => {
         </div>
 
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {featuredBooks.map((book) => (
+          {books.map((book) => (
             <Card key={book.id} className="group overflow-hidden hover:shadow-[var(--card-shadow-hover)] transition-all">
               <CardHeader className="p-0">
-                <div className="relative overflow-hidden aspect-[3/4]">
-                  <img 
-                    src={book.image} 
-                    alt={book.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                  <Badge className="absolute top-3 left-3 bg-accent">
-                    {Math.round(((book.originalPrice - book.price) / book.originalPrice) * 100)}% OFF
-                  </Badge>
+                <div className="relative overflow-hidden aspect-[3/4] bg-muted">
+                  {book.image_url ? (
+                    <img 
+                      src={book.image_url} 
+                      alt={book.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-secondary">
+                      <span className="text-muted-foreground">No Image</span>
+                    </div>
+                  )}
+                  {book.original_price && (
+                    <Badge className="absolute top-3 left-3 bg-accent">
+                      {Math.round(((book.original_price - book.price) / book.original_price) * 100)}% OFF
+                    </Badge>
+                  )}
                   <Badge variant="secondary" className="absolute top-3 right-3">
-                    {book.condition}
+                    {getConditionLabel(book.condition)}
                   </Badge>
                 </div>
               </CardHeader>
               <CardContent className="pt-4">
                 <h3 className="font-semibold text-lg mb-1 line-clamp-1">{book.title}</h3>
                 <p className="text-sm text-muted-foreground mb-2">{book.author}</p>
-                <div className="flex items-center gap-1 mb-3">
-                  <Star className="h-4 w-4 fill-accent text-accent" />
-                  <span className="text-sm font-medium">{book.rating}</span>
-                </div>
                 <div className="flex items-baseline gap-2">
                   <span className="text-2xl font-bold text-primary">${book.price}</span>
-                  <span className="text-sm text-muted-foreground line-through">${book.originalPrice}</span>
+                  {book.original_price && (
+                    <span className="text-sm text-muted-foreground line-through">${book.original_price}</span>
+                  )}
                 </div>
               </CardContent>
               <CardFooter className="pt-0">
-                <Button className="w-full" size="sm">
+                <Button className="w-full" size="sm" onClick={() => addToCart(book.id)}>
                   <ShoppingCart className="h-4 w-4 mr-2" />
                   Add to Cart
                 </Button>
@@ -109,7 +179,7 @@ export const FeaturedBooks = () => {
         </div>
 
         <div className="text-center mt-10">
-          <Button variant="outline" size="lg">
+          <Button variant="outline" size="lg" onClick={() => navigate('/browse')}>
             View All Books
           </Button>
         </div>
