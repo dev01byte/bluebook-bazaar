@@ -1,41 +1,47 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tag, Copy, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Coupon {
+  id: string;
   code: string;
-  description: string;
-  discount: string;
-  validUntil: string;
+  description: string | null;
+  discount_percentage: number;
+  valid_until: string | null;
+  min_purchase_amount: number | null;
 }
 
-const activeCoupons: Coupon[] = [
-  {
-    code: "WELCOME20",
-    description: "First purchase discount",
-    discount: "20% OFF",
-    validUntil: "Dec 31, 2024"
-  },
-  {
-    code: "BOOKWORM15",
-    description: "For book lovers",
-    discount: "15% OFF",
-    validUntil: "Dec 25, 2024"
-  },
-  {
-    code: "SAVE10",
-    description: "Orders above $50",
-    discount: "$10 OFF",
-    validUntil: "Dec 20, 2024"
-  }
-];
-
 export const CouponSection = () => {
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+
+  useEffect(() => {
+    fetchCoupons();
+  }, []);
+
+  const fetchCoupons = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('coupons')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(3);
+
+      if (error) throw error;
+      setCoupons(data || []);
+    } catch (error) {
+      console.error('Error fetching coupons:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const copyCoupon = (code: string) => {
     navigator.clipboard.writeText(code);
@@ -46,6 +52,23 @@ export const CouponSection = () => {
     });
     setTimeout(() => setCopiedCode(null), 2000);
   };
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "No expiration";
+    return new Date(dateString).toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric' 
+    });
+  };
+
+  if (loading) {
+    return null;
+  }
+
+  if (coupons.length === 0) {
+    return null;
+  }
 
   return (
     <section className="py-16 bg-secondary/30">
@@ -62,17 +85,26 @@ export const CouponSection = () => {
         </div>
 
         <div className="grid gap-6 md:grid-cols-3 max-w-5xl mx-auto">
-          {activeCoupons.map((coupon) => (
-            <Card key={coupon.code} className="hover:shadow-lg transition-shadow">
+          {coupons.map((coupon) => (
+            <Card key={coupon.id} className="hover:shadow-lg transition-shadow">
               <CardHeader>
                 <div className="flex items-center justify-between mb-2">
                   <Badge variant="secondary" className="text-lg px-3 py-1">
-                    {coupon.discount}
+                    {coupon.discount_percentage}% OFF
                   </Badge>
                   <Tag className="h-5 w-5 text-primary" />
                 </div>
-                <CardTitle className="text-xl">{coupon.description}</CardTitle>
-                <CardDescription>Valid until {coupon.validUntil}</CardDescription>
+                <CardTitle className="text-xl">
+                  {coupon.description || "Special Discount"}
+                </CardTitle>
+                <CardDescription>
+                  Valid until {formatDate(coupon.valid_until)}
+                  {coupon.min_purchase_amount && (
+                    <span className="block mt-1">
+                      Min. purchase: ${coupon.min_purchase_amount}
+                    </span>
+                  )}
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-2">
