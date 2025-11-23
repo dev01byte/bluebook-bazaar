@@ -207,8 +207,8 @@ export default function Cart() {
 
       if (clearError) throw clearError;
 
-      toast.success("Order placed successfully!");
-      navigate("/");
+      toast.success("Order created! Proceeding to payment...");
+      navigate("/payment", { state: { orderId: order.id } });
     } catch (error) {
       console.error("Error during checkout:", error);
       toast.error("Failed to place order");

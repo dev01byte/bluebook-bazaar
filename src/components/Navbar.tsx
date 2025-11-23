@@ -45,11 +45,21 @@ export const Navbar = () => {
               </Link>
             )}
             {user && (
-              <Link to="/cart">
-                <Button variant="ghost" size="icon">
-                  <ShoppingCart className="h-5 w-5" />
-                </Button>
-              </Link>
+              <>
+                <Link to="/orders">
+                  <Button variant="ghost">Orders</Button>
+                </Link>
+                <Link to="/cart">
+                  <Button variant="ghost" size="icon">
+                    <ShoppingCart className="h-5 w-5" />
+                  </Button>
+                </Link>
+                <Link to="/profile">
+                  <Button variant="ghost" size="icon">
+                    <User className="h-5 w-5" />
+                  </Button>
+                </Link>
+              </>
             )}
             {user ? (
               <Button variant="default" onClick={handleSignOut}>
