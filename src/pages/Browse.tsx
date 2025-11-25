@@ -178,7 +178,10 @@ export default function Browse() {
             {filteredBooks.map((book) => (
               <Card key={book.id} className="group hover:shadow-elegant transition-all duration-300 bg-card/50 backdrop-blur border-border">
                 <CardContent className="p-0">
-                  <div className="aspect-[3/4] overflow-hidden rounded-t-lg">
+                  <div 
+                    className="aspect-[3/4] overflow-hidden rounded-t-lg cursor-pointer"
+                    onClick={() => navigate(`/book/${book.id}`)}
+                  >
                     <img
                       src={book.image_url}
                       alt={book.title}

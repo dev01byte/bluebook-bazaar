@@ -136,7 +136,10 @@ export const FeaturedBooks = () => {
           {books.map((book) => (
             <Card key={book.id} className="group overflow-hidden hover:shadow-[var(--card-shadow-hover)] transition-all">
               <CardHeader className="p-0">
-                <div className="relative overflow-hidden aspect-[3/4] bg-muted">
+                <div 
+                  className="relative overflow-hidden aspect-[3/4] bg-muted cursor-pointer"
+                  onClick={() => navigate(`/book/${book.id}`)}
+                >
                   {book.image_url ? (
                     <img 
                       src={book.image_url} 
